@@ -1,0 +1,122 @@
+name: Git Markdown for VNETS ~ $(Date:yyyy-MM-dd HH-mm) UTC
+
+pool:
+  vmImage: ubuntu-latest
+pr: none
+trigger:
+  branches:
+    include:
+    - master
+  paths:
+    include:
+    - org/
+workspace:
+  clean: all
+variables:
+- template: /.pipelines/config/git-tag.yml
+
+steps:
+- checkout: none
+- task: AzureKeyVault@1
+  inputs:
+    azureSubscription: $(SVC_CONNECTION)
+    KeyVaultName: $(VAULT_NAME)
+  displayName: "Download Azure Key Vault secrets"
+- script: |
+    BRANCH="prBot/autoPRvnets"
+
+    pwd
+    ls -la
+
+    git clone https://SVC-ACCOUNT-NAME:$(GITPAT)@github.com/MY-ORGANISATIONAL-NAME/MY-REPO-NAME.git
+    cd ./MY-REPO-NAME || exit 1
+    pwd && ls -la
+    git checkout master
+    cd ./scripts/markdown/vnets || exit 1
+
+
+    # VNET HUB
+    while IFS= read -r -d '' file
+    do
+        header="$(cut -d/ -f3 <<<"${file}")"
+        headerLoc="$(cut -d/ -f4 <<<"${file}")"
+        location="${file//..\//}"
+
+        printf '### %s in %s' "${header}" "${headerLoc}"
+        printf '\n`~ %s\n' "${location}:\`"
+        printf "\`\`\`\n"
+
+        awk -f awk_vnetPrintHub.awk "$file"
+
+        printf "\`\`\`\n\n"
+    done < <(find ./org -type f -name 'networking_hub*' -print0 | sort -z) > ./README.md
+
+
+    # VNET SPOKES
+    while IFS= read -r -d '' file
+    do
+        header="$(cut -d/ -f3 <<<"${file}")"
+        headerLoc="$(cut -d/ -f4 <<<"${file}")"
+        location="${file//..\//}"
+
+        printf '### %s in %s' "${header}" "${headerLoc}"
+        printf '\n`~ %s\n' "${location}:\`"
+        printf "\`\`\`\n"
+
+        awk -f awk_vnetPrintSpoke.awk "$file"
+
+        printf "\`\`\`\n\n"
+    done < <(find ./org -type f -name 'networking_spoke*' -print0 | sort -z) >> ./README.md
+
+    # Create header
+    awk -f awk_vnetPrintMenu.awk ./README.md > ./tmp
+
+    # # Join files together
+    tee -a ./tmp < ./README.md > /dev/null 2>&1
+
+    # # Final README creation
+    mv ./tmp ./README.md
+
+    pwd
+    ls -la
+
+    file1="./org/README.md"
+    file2="./README.md"
+
+
+    if cmp -s "$file1" "$file2"; then
+        printf 'The file "%s" is the same as "%s"\n' "$file1" "$file2"
+        rm -f "$file2"
+        exit 0
+    else
+        printf 'The file "%s" is different from "%s"\n' "$file1" "$file2"
+        mv -f "$file2" "$file1"
+
+
+        git config user.email "pr@bot.com"
+        git config user.name "PR Bot"
+        git checkout -b "$BRANCH"
+        git push origin "$BRANCH"
+        git add "$file1"
+        git commit -m "Update markdown for client services"
+        git push origin "$BRANCH"
+
+
+        # Create PR
+        curl --location --request POST 'https://api.github.com/repos/MY-ORGANISATIONAL-NAME/MY-REPO-NAME/pulls' \
+            --header 'Accept: application/vnd.github.v3+json' \
+            --header "Authorization: Bearer $(GITPAT)" \
+            --header 'Content-Type: application/json' \
+            -d @- << EOF
+    {
+        "head": "$BRANCH",
+        "base": "master",
+        "title": "#patch auto PR on VNET TFvars updates",
+        "body": "### PR Bot\nSome changes have been made to VNET TFvars, updating markdown to replicate"
+    }
+    EOF
+    fi
+
+
+    echo "** Removing config **"
+    git config --unset remote.origin.url
