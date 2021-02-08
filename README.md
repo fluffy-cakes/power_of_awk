@@ -30,7 +30,7 @@ terraform {
 }
 ```
 
-Knowing that my code structure is based on two spaces as indent, the following code has been written for this. In the following AWK block, I am looking for a provider type listed in the `required_providers` block, where it starts `{` and where it ends `}` To search between blocks with AWK we put a comma between the regex search patterns: `/pattern1/,/pattern2/` . Here I use `/^[[:space:]]{2,2}required_providers/,/^[[:space:]]{2,2}}$/`, which looking for `required_providers {`.
+Knowing that my code structure is based on two spaces as indent, the following code has been written for this. In the following AWK block, I am looking for a provider type listed in the `required_providers` block, where it starts `{` and where it ends `}` To search between blocks with AWK we put a comma between the regex search patterns: `/pattern1/,/pattern2/` . Here I use `/^[[:space:]]{2,2}required_providers/,/^[[:space:]]{2,2}}$/`, which looking for `required_providers {`, remembering that `^` denotes the start of the line, and `$` is the end of the line.
 
 Note that I have used specific spacing to determine the start and end blocks; because AWK doesn't read Terraform language syntax, it can only read text line by line. If I didn't do this, the end block could be any of the iterations of `}` after the search field of `required_providers`, although it usually picks the very last one on the page.
 
@@ -134,7 +134,7 @@ With the `uniq` argument it will print out all the providers with their versions
 
 `provider.sh types`
 
-Finally this will print out the types of resource providers used, on the basis that the provider written before the type of resource deployed:
+Finally this will print out the types of resource providers used, using the provider that is written before the type of resource deployed:
 
 ```hcl
 # Example type of item lookup
@@ -159,9 +159,9 @@ random
 
 ## Markdown Generator
 
-On a clients project we used Terraform `.tfvars` files to help build out the hub and spoke environment under the organisational structure of the inhouse project names, and the region where they are deployed, resulting in files called `networking_hub.tfvars` or `networking_spoke.tfvars`. There were quite a number  projects, which resulted in a lot of Org sub folders. In order to easily identify the networking structure of each client at a glance (their virtual network name/CIDR, and the subnet names/CIDRs), I developed a Markdown file generator that automatically ran whenever anyone pushed a PR that touched these subfolders. It would initiate the repo being downloaded, a new Markdown file generated, and then compares the new file with the old; if there are any changes to the file, a PR will automatically be raised by a PR Bot.
+On a clients project we used Terraform `.tfvars` files to help build out the hub and spoke environment under the organisational structure of the inhouse project names and the region where they are deployed, resulting in files called `networking_hub.tfvars` or `networking_spoke.tfvars`. There were quite a number  projects, which resulted in a lot of Org sub folders. In order to easily identify the networking structure of each client at a glance (their virtual network name/CIDR, and the subnet names/CIDRs), I developed a Markdown file generator that automatically ran whenever anyone pushed a PR that touched these subfolders. It would initiate the repo being downloaded, a new Markdown file generated, and then compares the new file with the old; if there are any changes to the file, a PR will automatically be raised by a PR Bot.
 
-I have scripted two ways to do this; the first is with pure AWK functionality that depends upon the code structure of the file, whereas the second is using a third party application (https://github.com/tmccombs/hcl2json) that converts the `.tfvars` to JSON, performs a JQ query on selected objects, and then uses AWK to print the results. By far the best way to perform this is to use the `hcl2json` tool; because it uses JSON to parse the object, there's less chances of things going wrong using an AWK script (bad indentation and whatnot). Take note that introducing a third party tool can add some security concerns which could require compliance to sign off on using it. I won't go into the full details outlining each line of the scripts I've posted, I'll leave that up to your technological knowhow and understanding to decipher them, however here's a selected comparison in code using pure AWK abilities vs HCL2JSON with AWK.
+I have scripted two ways to do this; the first is with pure AWK functionality that depends upon the code structure of the file, whereas the second is using a third party application (https://github.com/tmccombs/hcl2json) that converts the `.tfvars` to JSON, performs a JQ query on selected objects, and then uses AWK to print the results. By far the best way to perform this is to use the `hcl2json` tool because it uses JSON to parse the object; there's less chances of things going wrong using an AWK script (bad indentation and whatnot). Take note that introducing a third party tool can add some security concerns which could require compliance to sign off on using it. I won't go into the full details outlining each line of the scripts I've posted, I'll leave that up to your technological knowhow and understanding to decipher them, however here's a selected comparison in code using pure AWK abilities vs HCL2JSON with AWK.
 
 ```awk
 # pure AWK of 'special subnets'
@@ -323,7 +323,7 @@ The first part is to use the Azure CLI and generate a list of all the SPs (or Ap
 
 You can see here that on line 6 I use a regex pattern to match the name of the service principal. In this case our accounts start with `SP-` followed by any character repeated no less than 8 times, and no more than 8 times, followed by a hyphen and any character repeated any amount of times. Essentially I'm looking for something that looks like `SP-12345678-asdf`. This is the key part to help list our SPs, so unless you have some good regex patterns to you use, and/or your naming convention for service accounts is all over the place, you might find this somewhat hard to re-use.
 
-Using JQ we can filter the outputs in two ways; those without passwords set, where `passwordCredentials` array is empty;`[]`, and those with something inside the array, which is usually a block of code that contains a string for `endDate`. Thus we can build a JSON output that would contain `null` for no password, or the actual date for when it ends.
+Using JQ we can filter the outputs in two ways; those without passwords set, where `passwordCredentials` array is empty;`[]`, and those with something inside the array with passwords set, which is usually a block of code that contains a string for `endDate` (amongst other things). Thus we can build a JSON output that would contain `null` for no password, or the actual date for when it ends.
 
 ```bash
 File: service_accounts.sh
@@ -354,25 +354,6 @@ Where the resulting JSON would look something like:
 
 Once both Service Account and App Registration JSON files are generated we can merge them together. Seeing as though our App Registrations are usually named similar to the Service Principals, I can mash them together to make one file which I can parse with an AWK command.
 
-The resulting mashing of line 19 from below, would look something like:
-
-```json
-    {
-        "name": "SP-87654321-deployment",
-        "creds": {
-            "app": "2021-12-18T09:43:18+00:00",
-            "spn": "null"
-        }
-    },
-    {
-        "name": "SP-12345678-654321-cust",
-        "creds": {
-            "app": "null",
-            "spn": "2021-12-18T09:43:18+00:00"
-        }
-    }
-```
-
 I would be lying if I said I fully understand that JQ command on line 19, so I'll leave it up to you to do any research on it if you want to. However, now that we have both files together we can use AWK to parse them out into pretty text using `printf` function.
 
 ```bash
@@ -394,6 +375,25 @@ File: service_accounts.sh
 33:             gsub(",", "")
 34:             printf("\tspn: %-32s\n", $2)
 35:         }'
+```
+
+The resulting mashing of line 19 from below, would look something like:
+
+```json
+    {
+        "name": "SP-87654321-deployment",
+        "creds": {
+            "app": "2021-12-18T09:43:18+00:00",
+            "spn": "null"
+        }
+    },
+    {
+        "name": "SP-12345678-654321-cust",
+        "creds": {
+            "app": "null",
+            "spn": "2021-12-18T09:43:18+00:00"
+        }
+    }
 ```
 
 Which would finally result in the following output:
