@@ -2,6 +2,10 @@
 
 This is a collection of AWK scripts that I have built to help aid productivity on some projects. Although AWK is a powerful programming language, it is still limited to the abilities of searching text (line by line) and the structure on which it is written. Please bear in mind that the majority of these scripts rely on this, and it will vary for each client/project/file.
 
+- [Terraform Provider Output Script](#Terraform-Provider-Output-Script)
+- [Markdown Generator](#Markdown-Generator)
+- [Service Accounts End Dates](#Service-Accounts-End-Dates)
+
 ## Terraform Provider Output Script
 
 The `provider.sh` script will search all the subfolders for the provider versions in their nested block and print out results depending upon how the script is called.
@@ -137,7 +141,7 @@ Finally this will print out the types of resource providers used, on the basis t
 resource "azurerm_resource_group" "luminaterg" {
   name     = "${module.names.standard["resource-group"]}-luminate-connector"
   location = var.ARM_LOCATION
-  tags = var.global_settings.tags
+  tags     = var.global_settings.tags
 }
 ```
 
@@ -237,7 +241,7 @@ File: markdown_pipeline.yml
 
 At the start of the script we check out the repo via the command line, using a GitHub service account as the authenticator.
 
-```bash
+```yaml
 File: markdown_pipeline.yml
 26:     BRANCH="prBot/autoPRvnets"
 27:
@@ -255,7 +259,7 @@ File: markdown_pipeline.yml
 
 Using general Bash scripting we compare the output of the Markdown file recently generated with the one already existing in the Org folder. If there are no changes, delete the file and end the script.
 
-```bash
+```yaml
 File: markdown_pipeline.yml
 83:     file1="./org/README.md"
 84:     file2="./README.md"
@@ -272,7 +276,7 @@ File: markdown_pipeline.yml
 
 If there are differences in the file; create a new branch, move the file into the branch and commit it.
 
-```bash
+```yaml
 File: markdown_pipeline.yml
 96:         git config user.email "pr@bot.com"
 97:         git config user.name "PR Bot"
@@ -285,7 +289,7 @@ File: markdown_pipeline.yml
 
 Finally, raise a PR with basic comments using the GitHub API
 
-```bash
+```yaml
 File: markdown_pipeline.yml
 105:         # Create PR
 106:         curl --location --request POST 'https://api.github.com/repos/MY-ORGANISATIONAL-NAME/MY-REPO-NAME/pulls' \
@@ -305,7 +309,7 @@ File: markdown_pipeline.yml
 
 ...don't forget to clear your Git credentials!
 
-```bash
+```yaml
 File: markdown_pipeline.yml
 121:     echo "** Removing config **"
 122:     git config --unset remote.origin.url
@@ -406,16 +410,16 @@ File: service_accounts.sh
 41: OS=$(uname -s)
 42: if   [[ "$OS" == "Linux" ]]; then
 43:     CURRENT_TIME=$(date -u +'%Y-%m-%dT%H:%M:%S' -d "+7 days") # Linux
-44: 
+44:
 45: elif [[ "$OS" == "Darwin" ]]; then
 46:     CURRENT_TIME=$(date -u -v +7d +'%Y-%m-%dT%H:%M:%S') # Mac
-47: 
+47:
 48: else
 49:     echo "...is this a Linux box??"
 50:     exit 1
 51: fi
-52: 
-53: 
+52:
+53:
 54: jq ".[] | select(.creds.app < \"$CURRENT_TIME\")" app.json > end_app.json
 55: jq ".[] | select(.creds.spn < \"$CURRENT_TIME\")" spn.json > end_spn.json
 ```
