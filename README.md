@@ -6,6 +6,10 @@ This is a collection of AWK scripts that I have built to help aid productivity o
 - [Markdown Generator](#Markdown-Generator)
 - [Service Accounts End Dates](#Service-Accounts-End-Dates)
 
+### WSL Users, Take Note!
+
+For those of whom are like me that use Windows Subsystem for Linux, <u>beware!</u> The AWK `printf` function will cause some random things to happen if you don't set your file line ending characters to Linux format, which usually results in text printing over the top of each other. This has caused me hours of headache until I finally realise the format of my file is `CRLF` instead of `LF`.  I recommend this plugin if you are using VSCode to make it blatantly obvious: https://marketplace.visualstudio.com/items?itemName=sohamkamani.code-eol
+
 ## Terraform Provider Output Script
 
 The `provider.sh` script will search all the subfolders for the provider versions in their nested block and print out results depending upon how the script is called.
