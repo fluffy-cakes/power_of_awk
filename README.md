@@ -43,16 +43,19 @@ Using nested conditions I can then perform a line by line search between that bl
 The next field works on the same premises, where I'm searching for the `versions` of that nested block, such as `version = "<=1.40"`. I am then able to use the `printf` function to bring those values together on the same line, passing in the variable and the recently found version value. Please note the use of `gsub` where I remove all inverted commas for pretty printing.
 
 ```awk
-/^[[:space:]]{2,2}required_providers/,/^[[:space:]]{2,2}}$/ {
+/^[[:space:]]{2}required_providers/,/^[[:space:]]{2}}$/ {
     gsub("\"", "")
     if ($0 ~ /[[:alpha:]][[:space:]]=[[:space:]]\{/) {
         pr = $1
     }
-    if ($0 ~ /version[[:space:]]=[[:space:]]/) {
-        printf("%s %s\n", pr, $3)
+    if ($0 ~ /version[[:space:]]*[<>=]+[[:space:]]*/) {
+        ver = $0
+        sub(/^[[:space:]]*version[[:space:]]*(=[[:space:]]*)?/, "", ver)
+        print pr, ver
     }
 }
 ```
+*UPDATED: 2021-02-18 to cater for versions with spaces. With thanks to the reply on my StackOverFlow post: https://stackoverflow.com/questions/66255562/awk-change-field-separator-multiple-times/*
 
 All this can now be utilised as part of script, passing in arguments to print out the required outputs:
 
